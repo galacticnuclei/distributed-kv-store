@@ -12,4 +12,6 @@ type Node struct {
     Port  string
     Peers []string
     Role  Role
+
+	Store *store.KVStore
 }
