@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"encoding/json"
 	"net/http"
 
@@ -40,4 +41,10 @@ func (h *Handler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	h.Store.Delete(key)
 	w.Write([]byte("Deleted"))
+}
+
+func (h *Handler) HeartbeatHandler(w http.ResponseWriter,r *http.Request) {
+	fmt.Println("Received heartbeat")
+	w.Write([]bye("OK"))
+
 }

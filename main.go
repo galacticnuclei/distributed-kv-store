@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"kvstore/api"
 	"kvstore/store"
@@ -40,7 +41,18 @@ func main() {
 	http.HandleFunc("/set", handler.SetHandler)
 	http.HandleFunc("/get", handler.GetHandler)
 	http.HandleFunc("/delete", handler.DeleteHandler)
-
+	http.HandleFunc("/heartbeat", handler.HeartbeatHandler)
 	fmt.Println("Server running on port", port)
+
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+
+			for _,peer := range n.Peers {
+				url := "http://" + peer + "/heartbeat"
+				http.Post(url, "application/json", nil)
+			}
+		}
+	}()
 	http.ListenAndServe(":"+port, nil)
 }
