@@ -45,6 +45,6 @@ func (h *Handler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HeartbeatHandler(w http.ResponseWriter,r *http.Request) {
 	fmt.Println("Received heartbeat")
-	w.Write([]bye("OK"))
+	w.Write([]byte("OK"))
 
 }
