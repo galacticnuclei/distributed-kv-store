@@ -1,4 +1,5 @@
 package node
+import "kvstore/store"
 
 type Role string
 
