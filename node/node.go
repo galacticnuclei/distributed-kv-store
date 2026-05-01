@@ -26,6 +26,6 @@ type Node struct {
 	LastHeartbeat time.Time
 	LastElection  time.Time
 
-	Term     int    // 🔥 NEW
-	VotedFor string // 🔥 NEW (who we voted for in this term)
+	Term     int
+	VotedFor string
 }

@@ -75,7 +75,7 @@ func (h *Handler) HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-// 🔥 FIXED voting logic
+// fixed voting logic
 func (h *Handler) VoteHandler(w http.ResponseWriter, r *http.Request) {
 	var req VoteRequest
 	json.NewDecoder(r.Body).Decode(&req)

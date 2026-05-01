@@ -67,7 +67,7 @@ func main() {
 	// election loop
 	go func() {
 		for {
-			// 🔥 RANDOMIZED timeout
+			// randomized timeout
 			timeout := time.Duration(3+rand.Intn(5)) * time.Second
 			time.Sleep(timeout)
 
