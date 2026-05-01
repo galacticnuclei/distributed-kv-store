@@ -32,11 +32,18 @@ func main() {
 		Store: kv,
 	}
 
+	n.LastHeartbeat = time.Now()
+
+	handler := &api.Handler{
+		Store: n.Store,
+		Node:  n,
+	}
+
 	fmt.Printf("Node %s started on port %s\n", n.ID, n.Port)
 	fmt.Println("Peers:", n.Peers)
 	fmt.Println("Role:", n.Role)
 
-	handler := &api.Handler{Store: n.Store}
+	handler = &api.Handler{Store: n.Store}
 
 	http.HandleFunc("/key/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
