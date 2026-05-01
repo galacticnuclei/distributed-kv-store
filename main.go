@@ -38,9 +38,18 @@ func main() {
 
 	handler := &api.Handler{Store: n.Store}
 
-	http.HandleFunc("/set", handler.SetHandler)
-	http.HandleFunc("/get", handler.GetHandler)
-	http.HandleFunc("/delete", handler.DeleteHandler)
+	http.HandleFunc("/key/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+			case http.MethodPut:
+				handler.PutHandler(w, r)
+			case http.MethodGet:
+				handler.GetHandler(w, r)
+			case http.MethodDelete:
+				handler.DeleteHandler(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	http.HandleFunc("/heartbeat", handler.HeartbeatHandler)
 	fmt.Println("Server running on port", port)
 

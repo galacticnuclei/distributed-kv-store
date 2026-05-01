@@ -1,9 +1,9 @@
 package api
 
 import (
-	"fmt"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"kvstore/store"
 )
@@ -13,21 +13,48 @@ type Handler struct {
 }
 
 type SetRequest struct {
-	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-func (h *Handler) SetHandler(w http.ResponseWriter, r *http.Request) {
+// helper to extract key from /key/{key}
+func getKeyFromPath(path string) string {
+	parts := strings.Split(path, "/")
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[2]
+}
+
+// PUT /key/{key}
+func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
+	key := getKeyFromPath(r.URL.Path)
+
+	// ✅ key validation
+	if key == "" {
+		http.Error(w, "Invalid key", http.StatusBadRequest)
+		return
+	}
+
 	var req SetRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
-	h.Store.Set(req.Key, req.Value)
+	// ✅ PUT VALUE VALIDATION — ADD IT RIGHT HERE
+	if req.Value == "" {
+		http.Error(w, "Value required", http.StatusBadRequest)
+		return
+	}
+
+	h.Store.Set(key, req.Value)
 	w.Write([]byte("OK"))
 }
 
+// GET /key/{key}
 func (h *Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
-	key := r.URL.Query().Get("key")
-
+	key := getKeyFromPath(r.URL.Path)
+	if key == "" {
+		http.Error(w, "Invalid key", http.StatusBadRequest)
+		return
+	}
 	val, ok := h.Store.Get(key)
 	if !ok {
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -37,14 +64,13 @@ func (h *Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(val))
 }
 
+// DELETE /key/{key}
 func (h *Handler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
-	key := r.URL.Query().Get("key")
+	key := getKeyFromPath(r.URL.Path)
+	if key == "" {
+		http.Error(w, "Invalid key", http.StatusBadRequest)
+		return
+	}
 	h.Store.Delete(key)
 	w.Write([]byte("Deleted"))
-}
-
-func (h *Handler) HeartbeatHandler(w http.ResponseWriter,r *http.Request) {
-	fmt.Println("Received heartbeat")
-	w.Write([]byte("OK"))
-
 }
