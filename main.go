@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
 
 	"kvstore/api"
-	"kvstore/store"
 	"kvstore/node"
+	"kvstore/store"
 )
 
 func main() {
@@ -32,63 +35,83 @@ func main() {
 		Store: kv,
 	}
 
-	n.LastHeartbeat = time.Now()
+	n.LastHeartbeat = time.Now().Add(-10 * time.Second)
+	n.LastElection = time.Now()
 
 	handler := &api.Handler{
 		Store: n.Store,
 		Node:  n,
 	}
 
-	fmt.Printf("Node %s started on port %s\n", n.ID, n.Port)
-	fmt.Println("Peers:", n.Peers)
-	fmt.Println("Role:", n.Role)
-
-	// ✅ REST routes
-	http.HandleFunc("/key/", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPut:
-			handler.PutHandler(w, r)
-		case http.MethodGet:
-			handler.GetHandler(w, r)
-		case http.MethodDelete:
-			handler.DeleteHandler(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// ✅ Internal route
+	http.HandleFunc("/key/", handler.PutHandler)
 	http.HandleFunc("/heartbeat", handler.HeartbeatHandler)
+	http.HandleFunc("/vote", handler.VoteHandler)
+	http.HandleFunc("/replicate", handler.ReplicateHandler)
 
-	fmt.Println("Server running on port", port)
+	fmt.Println("Node running on", port)
 
-	// ✅ Heartbeat sender
+	// leader heartbeat
 	go func() {
 		for {
 			time.Sleep(2 * time.Second)
-
-			for _, peer := range n.Peers {
-				url := "http://" + peer + "/heartbeat"
-				http.Post(url, "application/json", nil)
+			n.Mu.Lock()
+			if n.Role == node.Leader {
+				for _, p := range n.Peers {
+					http.Post("http://"+p+"/heartbeat", "application/json", nil)
+				}
 			}
+			n.Mu.Unlock()
 		}
 	}()
 
-	// LEADER ELECTION TRIGGER 
+	// election loop
 	go func() {
 		for {
-			time.Sleep(2 * time.Second)
+			// 🔥 RANDOMIZED timeout
+			timeout := time.Duration(3+rand.Intn(5)) * time.Second
+			time.Sleep(timeout)
 
 			n.Mu.Lock()
 
-			timeSince := time.Since(n.LastHeartbeat)
-
-			if n.Role != node.Leader && timeSince > 5*time.Second {
-				fmt.Println("No heartbeat detected. Becoming leader:", n.ID)
-				n.Role = node.Leader
+			// if already leader, do nothing.
+			if n.Role == node.Leader {
+				n.Mu.Unlock()
+				continue
 			}
 
+			if time.Since(n.LastHeartbeat) < timeout {
+				n.Mu.Unlock()
+				continue
+			}
+
+			n.Term++
+			term := n.Term
+			n.VotedFor = n.ID
 			n.Mu.Unlock()
+
+			votes := 1
+
+			for _, peer := range n.Peers {
+				req := map[string]interface{}{
+					"term":      term,
+					"candidate": n.ID,
+				}
+				data, _ := json.Marshal(req)
+
+				resp, err := http.Post("http://"+peer+"/vote", "application/json", bytes.NewBuffer(data))
+				if err == nil && resp.StatusCode == 200 {
+					votes++
+				}
+			}
+
+			if votes > (len(n.Peers)+1)/2 {
+				n.Mu.Lock()
+				if n.Role != node.Leader {
+					fmt.Println("Leader elected:", n.ID)
+					n.Role = node.Leader
+				}
+				n.Mu.Unlock()
+			}
 		}
 	}()
 

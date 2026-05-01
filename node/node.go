@@ -1,22 +1,31 @@
 package node
-import "kvstore/store"
-import "sync"
-import "time"
+
+import (
+	"sync"
+	"time"
+
+	"kvstore/store"
+)
 
 type Role string
 
 const (
-    Leader   Role = "leader"
-    Follower Role = "follower"
+	Leader   Role = "leader"
+	Follower Role = "follower"
 )
 
 type Node struct {
-    ID    string
-    Port  string
-    Peers []string
-    Role  Role
+	ID    string
+	Port  string
+	Peers []string
+	Role  Role
 
 	Store *store.KVStore
-    Mu  sync.Mutex
-    LastHeartbeat time.Time
+
+	Mu            sync.Mutex
+	LastHeartbeat time.Time
+	LastElection  time.Time
+
+	Term     int    // 🔥 NEW
+	VotedFor string // 🔥 NEW (who we voted for in this term)
 }
