@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	
+
 	"kvstore/store"
 	"kvstore/node"
 )
@@ -32,7 +32,7 @@ func getKeyFromPath(path string) string {
 func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
 	key := getKeyFromPath(r.URL.Path)
 
-	// ✅ key validation
+	// key validation
 	if key == "" {
 		http.Error(w, "Invalid key", http.StatusBadRequest)
 		return
@@ -41,7 +41,7 @@ func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
 	var req SetRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
-	// ✅ PUT VALUE VALIDATION — ADD IT RIGHT HERE
+	// PUT VALUE VALIDATION — ADD IT RIGHT HERE
 	if req.Value == "" {
 		http.Error(w, "Value required", http.StatusBadRequest)
 		return
