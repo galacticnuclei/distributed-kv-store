@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"kvstore/store"
+	"kvstore/node"
 )
 
 type Handler struct {
 	Store *store.KVStore
+	Node *node.Node
 }
 
 type SetRequest struct {
@@ -73,4 +75,16 @@ func (h *Handler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	h.Store.Delete(key)
 	w.Write([]byte("Deleted"))
+}
+
+func (h *Handler) HeartbeatHandler(w http.ResponseWriter, r *http.Request) {
+	// If you're using Node, update heartbeat time
+	if h.Node != nil {
+		h.Node.Mu.Lock()
+		h.Node.LastHeartbeat = time.Now()
+		h.Node.Role = node.Follower
+		h.Node.Mu.Unlock()
+	}
+
+	w.Write([]byte("OK"))
 }
