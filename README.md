@@ -1,26 +1,27 @@
 # Distributed Key-Value Store in Go
 
-A distributed key-value store built in Go featuring leader election, heartbeat-based failure detection, write replication, and a thread-safe in-memory storage engine.
+A distributed key-value store built in Go featuring leader election, heartbeat-based failure detection, replicated logs, majority-acknowledged writes, write-ahead logging (WAL), and crash recovery.
 
 ## Overview
 
-This project began as an exploration of distributed systems concepts and evolved into a multi-node key-value store capable of coordinating writes through a leader node and replicating data across followers.
+This project explores the core concepts behind distributed databases and consensus systems. It implements a multi-node key-value store where a leader node coordinates writes, replicates operations to follower nodes, and requires a majority of nodes to acknowledge a write before it is committed.
 
-The system uses an in-memory datastore protected by Go's `sync.RWMutex` for concurrent access, while nodes communicate over HTTP to exchange heartbeats, election votes, and replication requests.
+The system uses an in-memory datastore protected by Go's `sync.RWMutex` for concurrent access, while nodes communicate over HTTP to exchange heartbeats, election votes, and replication requests. A write-ahead log (WAL) provides durability and allows nodes to recover state after restarts.
 
 ## Features
 
 * Thread-safe in-memory key-value storage
-* RESTful HTTP API for key-value operations
-* Leader election using a simplified term-based voting mechanism
+* RESTful HTTP API for CRUD operations
+* Leader election using term-based voting
 * Heartbeat-based failure detection
-* Write replication from leader to follower nodes
-* Multi-node cluster configuration through peer discovery
-* Modular architecture separating storage, networking, and node management
+* Replicated operation log across cluster nodes
+* Majority-acknowledged writes (quorum commits)
+* Write-ahead logging (WAL)
+* Crash recovery through WAL replay
+* Multi-node cluster configuration
+* Modular architecture separating storage, networking, and cluster management
 
 ## Architecture
-
-The project is organized into three primary components:
 
 ### Store Layer
 
@@ -36,13 +37,15 @@ Responsible for cluster coordination.
 
 * Tracks node role (Leader/Follower)
 * Maintains peer information
-* Handles election state, voting, and heartbeat tracking
+* Handles election state and voting
+* Maintains replicated log entries
+* Coordinates heartbeat monitoring
 
 ### API Layer
 
 Exposes HTTP endpoints for both client and inter-node communication.
 
-Client-facing endpoints:
+#### Client Endpoints
 
 ```text
 PUT    /key/{key}
@@ -50,7 +53,7 @@ GET    /key/{key}
 DELETE /key/{key}
 ```
 
-Internal cluster endpoints:
+#### Internal Cluster Endpoints
 
 ```text
 POST /heartbeat
@@ -110,39 +113,73 @@ Delete a value:
 curl -X DELETE http://localhost:8001/key/name
 ```
 
+## Failure Handling
+
+The cluster requires a majority of nodes to acknowledge a write before it is accepted.
+
+| Cluster State       | Result         |
+| ------------------- | -------------- |
+| 3/3 nodes available | Write succeeds |
+| 2/3 nodes available | Write succeeds |
+| 1/3 nodes available | Write rejected |
+
+This prevents writes from being committed when a quorum is unavailable.
+
+## Persistence & Recovery
+
+All write operations are appended to a write-ahead log before being applied.
+
+On startup, nodes replay the WAL to rebuild the in-memory state and recover from crashes.
+
+Example:
+
+```text
+SET name mihir
+SET city mumbai
+DELETE city
+```
+
+## Testing
+
+### Automated Tests
+
+* KV store CRUD unit test
+* WAL recovery test
+
+Both tests currently pass successfully.
+
+### Manual Validation
+
+* Leader election across three nodes
+* Heartbeat-based failure detection
+* Replicated log propagation
+* Majority-acknowledged writes
+* Crash recovery after restart
+
 ## Benchmarks
 
 ### Storage Engine Benchmarks
 
 Measured using Go's benchmarking framework.
 
-| Operation             | Performance          |
-| --------------------- | -------------------- |
-| Read                  | ~28 million ops/sec  |
-| Write                 | ~2.9 million ops/sec |
-| Delete                | ~20 million ops/sec  |
-| Concurrent Read/Write | ~5.5 million ops/sec |
+| Operation             | Result        |
+| --------------------- | ------------- |
+| Read                  | ~28M ops/sec  |
+| Write                 | ~2.9M ops/sec |
+| Delete                | ~20M ops/sec  |
+| Concurrent Read/Write | ~5.5M ops/sec |
+
+Hardware: AMD Ryzen 7 250 with Radeon 780M Graphics.
 
 ### HTTP API Benchmark
 
 1000 PUT requests executed against a running node.
 
-| Metric                | Result           |
-| --------------------- | ---------------- |
-| Average Write Latency | 2.23 ms          |
-| Throughput            | 448 requests/sec |
-| Requests Tested       | 1000             |
-
-## Future Improvements
-
-This project intentionally focuses on the core mechanics of a distributed key-value store. Possible future extensions include:
-
-* Persistent storage using a write-ahead log
-* Snapshotting and recovery
-* Stronger consensus guarantees
-* Leader redirection for client requests
-* Majority acknowledgement before confirming writes
-* Containerized deployment using Docker
+| Metric                | Result      |
+| --------------------- | ----------- |
+| Average Write Latency | 2.23 ms     |
+| Throughput            | 448 req/sec |
+| Requests Tested       | 1000        |
 
 ## Technologies Used
 
@@ -157,9 +194,21 @@ This project intentionally focuses on the core mechanics of a distributed key-va
 
 Through this project I gained hands-on experience with:
 
-* Concurrency control in Go
+* Concurrent programming in Go
 * HTTP server development
 * Distributed systems fundamentals
 * Leader election and failure detection
-* Data replication strategies
-* Benchmarking and performance measurement
+* Replicated logs and quorum-based writes
+* Write-ahead logging and crash recovery
+* Benchmarking and performance analysis
+
+## Future Improvements
+
+Potential future extensions include:
+
+* Commit index and deferred log application
+* Snapshotting and log compaction
+* Stronger Raft-style consistency guarantees
+* Leader redirection for client requests
+* Containerized deployment using Docker
+* Persistent replicated logs
