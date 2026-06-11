@@ -59,3 +59,30 @@ func BenchmarkConcurrentReadWrite(b *testing.B) {
 		}
 	})
 }
+
+func TestSetGetDelete(t *testing.T) {
+	kv := NewKVStore()
+
+	// SET
+	kv.Set("name", "mihir")
+
+	// GET
+	val, ok := kv.Get("name")
+
+	if !ok {
+		t.Fatal("expected key 'name' to exist")
+	}
+
+	if val != "mihir" {
+		t.Fatalf("expected value 'mihir', got '%s'", val)
+	}
+
+	// DELETE
+	kv.Delete("name")
+
+	_, ok = kv.Get("name")
+
+	if ok {
+		t.Fatal("expected key 'name' to be deleted")
+	}
+}
