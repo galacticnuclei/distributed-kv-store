@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -191,7 +190,6 @@ func (h *Handler) ReplicateHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.Node.Mu.Lock()
 	h.Node.Log = append(h.Node.Log, entry)
-	fmt.Println("Follower log length:", len(h.Node.Log))
 	h.Node.Mu.Unlock()
 
 	switch req.Op {
