@@ -3,3 +3,8 @@ SET name mihir
 SET city mumbai
 SET name mihir
 DELETE name
+SET test 123
+SET acktest1 100
+SET acktest3 300
+SET acktest3 300
+SET acktest3 300

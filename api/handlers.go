@@ -62,8 +62,18 @@ func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
 
 	wal.Append("SET " + key + " " + req.Value)
 	h.Store.Set(key, req.Value)
-	replicateToFollowers(h.Node, key, req.Value)
-	
+	acks := replicateToFollowers(h.Node, key, req.Value)
+	majority := (len(h.Node.Peers)+1)/2 + 1
+
+	if acks < majority {
+		http.Error(
+			w,
+			"Failed to reach majority",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
 	w.Write([]byte("OK"))
 }
 
@@ -160,11 +170,32 @@ func (h *Handler) ReplicateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func replicateToFollowers(n *node.Node, key, value string) {
-	body := map[string]string{"key": key, "value": value}
+func replicateToFollowers(n *node.Node, key, value string) int {
+	body := map[string]string{
+		"key":   key,
+		"value": value,
+	}
+
 	data, _ := json.Marshal(body)
 
+	acks := 1 // leader counts as one acknowledgement
+
 	for _, peer := range n.Peers {
-		http.Post("http://"+peer+"/replicate", "application/json", bytes.NewBuffer(data))
+
+		resp, err := http.Post(
+			"http://"+peer+"/replicate",
+			"application/json",
+			bytes.NewBuffer(data),
+		)
+
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			acks++
+		}
 	}
+
+	return acks
 }
