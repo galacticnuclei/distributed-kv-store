@@ -8,6 +8,67 @@ This project explores the core concepts behind distributed databases and consens
 
 The system uses an in-memory datastore protected by Go's `sync.RWMutex` for concurrent access, while nodes communicate over HTTP to exchange heartbeats, election votes, and replication requests. A write-ahead log (WAL) provides durability and allows nodes to recover state after restarts.
 
+## Architecture Diagram
+
+```mermaid
+graph TD
+
+    Client[Client]
+
+    Leader[Leader Node]
+
+    Follower1[Follower Node]
+    Follower2[Follower Node]
+
+    Log[Replicated Log]
+    KV[In-Memory KV Store]
+    WAL[Write-Ahead Log]
+
+    Client -->|PUT / GET / DELETE| Leader
+
+    Leader -->|Heartbeat| Follower1
+    Leader -->|Heartbeat| Follower2
+
+    Leader -->|Vote Requests| Follower1
+    Leader -->|Vote Requests| Follower2
+
+    Leader -->|Log Replication| Follower1
+    Leader -->|Log Replication| Follower2
+
+    Leader --> Log
+    Log --> KV
+    KV --> WAL
+
+    WAL -->|Recovery on Restart| KV
+```
+
+## Write Flow
+```mermaid
+sequenceDiagram
+
+    participant C as Client
+    participant L as Leader
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+
+    C->>L: PUT key=value
+
+    L->>L: Append Log Entry
+
+    L->>F1: Replicate Entry
+    L->>F2: Replicate Entry
+
+    F1-->>L: ACK
+    F2-->>L: ACK
+
+    L->>L: Majority Reached
+
+    L->>L: Apply to KV Store
+    L->>L: Append to WAL
+
+    L-->>C: OK
+```
+
 ## Features
 
 * Thread-safe in-memory key-value storage
