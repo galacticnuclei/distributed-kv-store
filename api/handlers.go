@@ -9,6 +9,7 @@ import (
 
 	"kvstore/node"
 	"kvstore/store"
+	"kvstore/wal"
 )
 
 type Handler struct {
@@ -59,10 +60,52 @@ func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wal.Append("SET " + key + " " + req.Value)
 	h.Store.Set(key, req.Value)
 	replicateToFollowers(h.Node, key, req.Value)
-
+	
 	w.Write([]byte("OK"))
+}
+
+
+// GET
+func (h *Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
+	key := getKeyFromPath(r.URL.Path)
+
+	if key == "" {
+		http.Error(w, "Invalid key", http.StatusBadRequest)
+		return
+	}
+
+	val, ok := h.Store.Get(key)
+
+	if !ok {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	w.Write([]byte(val))
+}
+
+// DELETE
+func (h *Handler) DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	key := getKeyFromPath(r.URL.Path)
+
+	if key == "" {
+		http.Error(w, "Invalid key", http.StatusBadRequest)
+		return
+	}
+
+	if h.Node.Role != node.Leader {
+		http.Error(w, "Not leader", http.StatusForbidden)
+		return
+	}
+
+	wal.Append("DELETE " + key)
+
+	h.Store.Delete(key)
+
+	w.Write([]byte("Deleted"))
 }
 
 // heartbeat

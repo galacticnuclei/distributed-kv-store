@@ -12,6 +12,7 @@ import (
 	"kvstore/api"
 	"kvstore/node"
 	"kvstore/store"
+	"kvstore/wal"
 )
 
 func main() {
@@ -26,7 +27,10 @@ func main() {
 	}
 
 	kv := store.NewKVStore()
-
+	err := wal.Recover(kv)
+	if err != nil {
+		fmt.Println("Recovery error:", err)
+	}
 	n := &node.Node{
 		ID:    port,
 		Port:  port,
@@ -43,7 +47,22 @@ func main() {
 		Node:  n,
 	}
 
-	http.HandleFunc("/key/", handler.PutHandler)
+	http.HandleFunc("/key/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+
+		case http.MethodPut:
+			handler.PutHandler(w, r)
+
+		case http.MethodGet:
+			handler.GetHandler(w, r)
+
+		case http.MethodDelete:
+			handler.DeleteHandler(w, r)
+
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	http.HandleFunc("/heartbeat", handler.HeartbeatHandler)
 	http.HandleFunc("/vote", handler.VoteHandler)
 	http.HandleFunc("/replicate", handler.ReplicateHandler)
