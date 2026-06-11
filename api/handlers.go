@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -22,10 +23,11 @@ type SetRequest struct {
 }
 
 type ReplicateRequest struct {
+	Term  int    `json:"term"`
+	Op    string `json:"op"`
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
-
 type VoteRequest struct {
 	Term      int    `json:"term"`
 	Candidate string `json:"candidate"`
@@ -60,9 +62,22 @@ func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	entry := node.LogEntry{
+		Term:  h.Node.Term,
+		Op:    "SET",
+		Key:   key,
+		Value: req.Value,
+	}
+
+	h.Node.Mu.Lock()
+	h.Node.Log = append(h.Node.Log, entry)
+	h.Node.Mu.Unlock()
+
 	wal.Append("SET " + key + " " + req.Value)
+
 	h.Store.Set(key, req.Value)
-	acks := replicateToFollowers(h.Node, key, req.Value)
+
+	acks := replicateToFollowers(h.Node, entry)
 	majority := (len(h.Node.Peers)+1)/2 + 1
 
 	if acks < majority {
@@ -76,7 +91,6 @@ func (h *Handler) PutHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte("OK"))
 }
-
 
 // GET
 func (h *Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
@@ -161,24 +175,51 @@ func (h *Handler) VoteHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ReplicateHandler(w http.ResponseWriter, r *http.Request) {
 	var req ReplicateRequest
-	json.NewDecoder(r.Body).Decode(&req)
 
-	if req.Key != "" {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	entry := node.LogEntry{
+		Term:  req.Term,
+		Op:    req.Op,
+		Key:   req.Key,
+		Value: req.Value,
+	}
+
+	h.Node.Mu.Lock()
+	h.Node.Log = append(h.Node.Log, entry)
+	fmt.Println("Follower log length:", len(h.Node.Log))
+	h.Node.Mu.Unlock()
+
+	switch req.Op {
+	case "SET":
 		h.Store.Set(req.Key, req.Value)
+
+	case "DELETE":
+		h.Store.Delete(req.Key)
 	}
 
 	w.Write([]byte("OK"))
 }
 
-func replicateToFollowers(n *node.Node, key, value string) int {
-	body := map[string]string{
-		"key":   key,
-		"value": value,
+func replicateToFollowers(
+	n *node.Node,
+	entry node.LogEntry,
+) int {
+
+	body := ReplicateRequest{
+		Term:  entry.Term,
+		Op:    entry.Op,
+		Key:   entry.Key,
+		Value: entry.Value,
 	}
 
 	data, _ := json.Marshal(body)
 
-	acks := 1 // leader counts as one acknowledgement
+	acks := 1 // leader counts as an ACK
 
 	for _, peer := range n.Peers {
 

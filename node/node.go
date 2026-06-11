@@ -14,6 +14,13 @@ const (
 	Follower Role = "follower"
 )
 
+type LogEntry struct {
+	Term  int
+	Op    string
+	Key   string
+	Value string
+}
+
 type Node struct {
 	ID    string
 	Port  string
@@ -28,4 +35,5 @@ type Node struct {
 
 	Term     int
 	VotedFor string
+	Log      []LogEntry
 }
