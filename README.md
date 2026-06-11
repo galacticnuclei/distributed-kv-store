@@ -17,29 +17,28 @@ graph TD
 
     Leader[Leader Node]
 
-    Follower1[Follower Node]
-    Follower2[Follower Node]
-
-    Log[Replicated Log]
-    KV[In-Memory KV Store]
-    WAL[Write-Ahead Log]
+    F1[Follower Node]
+    F2[Follower Node]
 
     Client -->|PUT / GET / DELETE| Leader
 
-    Leader -->|Heartbeat| Follower1
-    Leader -->|Heartbeat| Follower2
+    Leader -->|Heartbeats| F1
+    Leader -->|Heartbeats| F2
 
-    Leader -->|Vote Requests| Follower1
-    Leader -->|Vote Requests| Follower2
+    Leader -->|Voting| F1
+    Leader -->|Voting| F2
 
-    Leader -->|Log Replication| Follower1
-    Leader -->|Log Replication| Follower2
+    Leader -->|Replicated Log Entries| F1
+    Leader -->|Replicated Log Entries| F2
 
-    Leader --> Log
-    Log --> KV
-    KV --> WAL
+    subgraph Node Storage
+        WAL[Write-Ahead Log]
+        LOG[Replicated Log]
+        KV[KV Store]
+    end
 
-    WAL -->|Recovery on Restart| KV
+    WAL --> LOG
+    LOG --> KV
 ```
 
 ## Write Flow
